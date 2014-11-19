@@ -26,8 +26,8 @@ int main(){
 	printf("%s echo server started\n", async_system() );
 	
 	for(;;){
-		uint64_t count = async_poll(server);
-		
+		int count = async_poll(server, 1000);
+				
 		if (count < 0){
 			printf("Can not poll server\n");
 			exit(1);
@@ -38,8 +38,10 @@ int main(){
 			send(newsocket, welcome,strlen(welcome), 0);
 		}
 		
-		if (count == 0)
+		if (count == 0){
+			printf("Do something is meanwhile...\n");
 			continue;
+		}
 			
 		int64_t i;
 		for(i = 0; i < max_clients; i++){

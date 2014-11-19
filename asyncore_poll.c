@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include <unistd.h>		// close
+#include <unistd.h>		// close, getdtablesize
 
 #include <poll.h>
 
@@ -22,13 +22,6 @@ struct async_server_poll{
 };
 
 
-
-#ifndef INFTIM
-#define INFTIM -1
-#endif
-
-
-
 const char *async_system(){
 	return "poll"; 
 }
@@ -38,6 +31,9 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 	// check input data
 	if (max_clients == 0)
 		return NULL;
+		
+	if (max_clients > getdtablesize())
+		max_clients = getdtablesize();
 
 	if (backlog < 5)
 		backlog = 5;
@@ -78,15 +74,15 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 };
 
 
-int async_poll(struct async_server *server2){
+int async_poll(struct async_server *server2, int timeout){
 	struct async_server_poll *server = (struct async_server_poll *) server2;
 
 	// INFTIM = wait indefinitely
-	int activity = poll(server->clients, server->max_clients + 1, INFTIM);
+	int activity = poll(server->clients, server->max_clients + 1, timeout);
 
 
 	if (activity <= 0)
-		return -1;
+		return activity;
 
 
 	// check for incomming connections

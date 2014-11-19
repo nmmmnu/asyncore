@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include <unistd.h>		// close
+#include <unistd.h>		// close, getdtablesize
 #include <string.h>		// memset
 #include <errno.h>		// errno
 
@@ -41,6 +41,9 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 	if (max_clients > FD_SETSIZE)
 		max_clients = FD_SETSIZE;
 
+	if (max_clients > getdtablesize())
+		max_clients = getdtablesize();
+
 	if (backlog < 5)
 		backlog = 5;
 
@@ -75,7 +78,7 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 };
 
 
-int async_poll(struct async_server *server2){
+int async_poll(struct async_server *server2, int timeout){
 	struct async_server_select *server = (struct async_server_select *) server2;
 
 	// clear the socket set
@@ -95,8 +98,15 @@ int async_poll(struct async_server *server2){
 			FD_SET(sd , & server->readfds);
 	}
 
-	// wait for an activity on one of the sockets , timeout is NULL , so wait indefinitely
-	int activity = select(FD_SETSIZE, & server->readfds , NULL , NULL , NULL);
+	struct timeval time;
+	time.tv_sec = 0;
+	time.tv_usec = timeout * 1000;
+	
+	struct timeval *timep = timeout < 0 ? NULL : & time;
+
+	// wait for an activity on one of the sockets
+	int activity = select(FD_SETSIZE, & server->readfds , NULL , NULL , timep);
+	// server->readfds and struct timeval time are destroyed now.
 
 	if ((activity < 0) && (errno != EINTR))
 		return -1;
