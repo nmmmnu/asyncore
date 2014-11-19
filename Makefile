@@ -3,7 +3,7 @@ LINK = gcc -o
 
 
 
-all: test_echo_server_poll
+all: test_echo_server_poll test_echo_server_select
 
 
 
@@ -15,6 +15,9 @@ clean:
 test_echo_server_poll: test_echo_server.o asyncore_poll.o
 	$(LINK) test_echo_server_poll test_echo_server.o asyncore_poll.o
 
+test_echo_server_select: test_echo_server.o  asyncore_select.o
+	$(LINK) test_echo_server test_echo_server.o asyncore_select.o
+
 
 
 test_echo_server.o: test_echo_server.c asyncore.h
@@ -22,6 +25,9 @@ test_echo_server.o: test_echo_server.c asyncore.h
 
 
 
-asyncore_poll.o: asyncore_poll.c asyncore.h
+asyncore_poll.o: asyncore_poll.c asyncore_static.c asyncore.h
 	$(CC) asyncore_poll.c
+
+asyncore_select.o: asyncore_select.c asyncore_static.c asyncore.h
+	$(CC) asyncore_select.c
 

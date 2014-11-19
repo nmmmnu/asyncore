@@ -2,46 +2,32 @@
 #include <stdlib.h>
 #include <unistd.h>		// close
 
+#include <poll.h>
+
 #include <sys/socket.h>		// socket
 #include <arpa/inet.h>		// AF_INET
 
 #include "asyncore.h"
+#include "asyncore_static.c"
+
+
+
+struct async_server_poll{
+	uint32_t max_clients;		// 4
+	uint32_t connected_clients;	// 4
+	uint16_t port;			// 2
+
+	uint32_t last_client;		// 4
+
+	struct pollfd clients[];	// dynamic
+};
+
+
 
 #ifndef INFTIM
 #define INFTIM -1
 #endif
 
-#define LOG_FORMAT "%-25s , fd = %8d, ip = %-15s, port = %6d, clients = %8u\n"
-#define log(op, fd, ip, port, clients) printf(LOG_FORMAT, op, fd, ip, port, clients)
-
-
-
-
-
-static int _async_create_socket(uint16_t port, uint16_t backlog){
-	int master_socket = socket(AF_INET , SOCK_STREAM , 0);
-
-	if(! master_socket )
-		return -1;
-
-	const int opt = 1;
-	if ( setsockopt(master_socket, SOL_SOCKET, SO_REUSEADDR, & opt, sizeof(opt)) < 0 )
-		return -2;
-
-	struct sockaddr_in address;
-
-	address.sin_family = AF_INET;
-	address.sin_addr.s_addr = INADDR_ANY;
-	address.sin_port = htons(port);
-
-	if ( bind(master_socket, (struct sockaddr *) & address, sizeof(address)) < 0 )
-		return -3;
-
-	if (listen(master_socket, backlog) < 0)
-		return -4;
-
-	return master_socket;
-}
 
 
 struct async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
@@ -54,7 +40,7 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 
 
 	// malloc
-	struct async_server *server = malloc(sizeof(struct async_server) + sizeof( struct pollfd ) * max_clients);
+	struct async_server_poll *server = malloc(sizeof(struct async_server) + sizeof( struct pollfd ) * max_clients);
 
 	if (server == NULL)
 		return NULL;
@@ -84,17 +70,19 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 	}
 
 
-	return server;
+	return (struct async_server *) server;
 };
 
 
-int async_poll(struct async_server *server){
+int async_poll(struct async_server *server2){
+	struct async_server_poll *server = (struct async_server_poll *) server2;
+
 	// INFTIM = wait indefinitely
 	int activity = poll(server->clients, server->max_clients + 1, INFTIM);
 
 
 	if (activity <= 0)
-		return activity;
+		return -1;
 
 
 	// check for incomming connections
@@ -103,10 +91,8 @@ int async_poll(struct async_server *server){
 		size_t addrlen = sizeof(address);
 
 		int new_socket = accept(server->clients[0].fd, (struct sockaddr *) & address, (socklen_t *) & addrlen);
-		if ( new_socket < 0){
-		//	printf("Can't accept()");
+		if (new_socket < 0)
 			return -1;
-		}
 
 		// put it into the array
 		int inside = 0;
@@ -153,7 +139,9 @@ int async_poll(struct async_server *server){
 }
 
 
-int async_client_socket_new(struct async_server *server){
+int async_client_socket_new(struct async_server *server2){
+	struct async_server_poll *server = (struct async_server_poll *) server2;
+
 	if (server->last_client == 0)
 		return -1;
 
@@ -165,7 +153,9 @@ int async_client_socket_new(struct async_server *server){
 }
 
 
-int async_client_socket(struct async_server *server, uint16_t id){
+int async_client_socket(struct async_server *server2, uint16_t id){
+	struct async_server_poll *server = (struct async_server_poll *) server2;
+
 	struct pollfd *client = & server->clients[id];
 
 	if (client->fd < 0)
@@ -178,7 +168,9 @@ int async_client_socket(struct async_server *server, uint16_t id){
 }
 
 
-void async_client_close(struct async_server *server, uint16_t id){
+void async_client_close(struct async_server *server2, uint16_t id){
+	struct async_server_poll *server = (struct async_server_poll *) server2;
+
 	struct pollfd *client = & server->clients[id];
 
 	close(client->fd);
