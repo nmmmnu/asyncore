@@ -1,0 +1,6 @@
+*.o
+
+test_echo_server*
+
+_ot/
+
