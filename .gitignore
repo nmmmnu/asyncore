@@ -1,6 +1,9 @@
 *.o
 
-test_echo_server*
+test_echo_server_poll
+test_echo_server_select
+
+a.out
 
 _ot/
 

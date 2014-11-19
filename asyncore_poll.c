@@ -1,4 +1,3 @@
-#include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>		// close
 
@@ -28,6 +27,11 @@ struct async_server_poll{
 #define INFTIM -1
 #endif
 
+
+
+const char *async_system(){
+	return "poll"; 
+}
 
 
 struct async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
@@ -112,7 +116,7 @@ int async_poll(struct async_server *server2){
 
 
 		if (inside){
-			log("New connection",
+			LOG("Connect",
 				new_socket,
 				inet_ntoa(address.sin_addr),
 				ntohs(address.sin_port),
@@ -121,14 +125,15 @@ int async_poll(struct async_server *server2){
 		}else{
 			// max_clients are reached, drop the client...
 			// sorry :(
-			close(new_socket);
 
-			log("New connection dropped",
+			LOG("Drop connect",
 				new_socket,
 				inet_ntoa(address.sin_addr),
 				ntohs(address.sin_port),
 				server->connected_clients
 			);
+
+			close(new_socket);
 		}
 
 		activity--;
@@ -173,25 +178,27 @@ void async_client_close(struct async_server *server2, uint16_t id){
 
 	struct pollfd *client = & server->clients[id];
 
-	close(client->fd);
-	client->fd = -1;
-
 	server->connected_clients--;
 
-	// info part
-	struct sockaddr_in address;
-	size_t addrlen = sizeof(address);
 
-	getpeername(client->fd, (struct sockaddr *) & address , (socklen_t *) & addrlen);
+	{
+		// info part
+		struct sockaddr_in address;
+		size_t addrlen = sizeof(address);
 
-	log("Disconnection",
-		client->fd,
-		inet_ntoa(address.sin_addr),
-		ntohs(address.sin_port),
-		server->connected_clients
-	);
+		getpeername(client->fd, (struct sockaddr *) & address , (socklen_t *) & addrlen);
 
-	return;
+		LOG("Disconnect",
+			client->fd,
+			inet_ntoa(address.sin_addr),
+			ntohs(address.sin_port),
+			server->connected_clients
+		);
+	}
+	
+
+	close(client->fd);
+	client->fd = -1;
 }
 
 

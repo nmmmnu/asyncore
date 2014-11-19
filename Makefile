@@ -16,7 +16,7 @@ test_echo_server_poll: test_echo_server.o asyncore_poll.o
 	$(LINK) test_echo_server_poll test_echo_server.o asyncore_poll.o
 
 test_echo_server_select: test_echo_server.o  asyncore_select.o
-	$(LINK) test_echo_server test_echo_server.o asyncore_select.o
+	$(LINK) test_echo_server_select test_echo_server.o asyncore_select.o
 
 
 

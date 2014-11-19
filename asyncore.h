@@ -10,6 +10,7 @@ struct async_server{
 };
 
 
+const char *async_system();
 
 struct async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog);
 int async_poll(struct async_server *server);
