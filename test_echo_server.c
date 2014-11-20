@@ -66,6 +66,12 @@ int main(){
 			send(sock, buffer, len, 0);
 		}
 	}
+	
+	// Will not come here...
+	
+	free(server);
+	
+	return 0;
 }
 
 

@@ -117,7 +117,7 @@ int async_poll(struct async_server *server2, int timeout){
 		struct sockaddr_in address;
 		size_t addrlen = sizeof(address);
 
-		int new_socket = accept(server->master_socket, (struct sockaddr *) & address, (socklen_t*) & addrlen);
+		int new_socket = accept(server->master_socket, (struct sockaddr *) & address, (socklen_t *) & addrlen);
 		if (new_socket < 0)
 			return -1;
 

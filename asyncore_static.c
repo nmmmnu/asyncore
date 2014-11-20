@@ -1,7 +1,7 @@
 #include <stdio.h>
 
 #define LOG_FORMAT "%-12s | fd: %8d | ip: %-15s | port: %6d | clients: %8u\n"
-#define LOG(op, fd, ip, port, clients) printf(LOG_FORMAT, op, fd, ip, port, clients)
+#define LOG(op, fd, ip, port, clients) fprintf(stderr, LOG_FORMAT, op, fd, ip, port, clients)
 
 static int _async_create_socket(uint16_t port, uint16_t backlog){
 	int master_socket = socket(AF_INET , SOCK_STREAM , 0);
