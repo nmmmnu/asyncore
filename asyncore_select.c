@@ -29,7 +29,7 @@ struct async_server_select{
 
 
 const char *async_system(){
-	return "select"; 
+	return "select";
 }
 
 
@@ -98,10 +98,13 @@ int async_poll(struct async_server *server2, int timeout){
 			FD_SET(sd , & server->readfds);
 	}
 
+	// originally we did it lazy, but this fails on MacOS
+	//{ 0, timeout * 1000 }
 	struct timeval time;
-	time.tv_sec = 0;
-	time.tv_usec = timeout * 1000;
-	
+	time.tv_sec  = timeout / 1000;
+	time.tv_usec = ( timeout - time.tv_sec * 1000 ) * 1000;
+
+
 	struct timeval *timep = timeout < 0 ? NULL : & time;
 
 	// wait for an activity on one of the sockets
@@ -187,7 +190,7 @@ int async_client_socket(struct async_server *server2, uint16_t id){
 
 	if (FD_ISSET(sd, & server->readfds))
 		return sd;
-	
+
 	return -1;
 }
 
@@ -196,7 +199,7 @@ void async_client_close(struct async_server *server2, uint16_t id){
 	struct async_server_select *server = (struct async_server_select *) server2;
 
 	int sd = server->client_socket[id];
-					
+
 	server->connected_clients--;
 
 

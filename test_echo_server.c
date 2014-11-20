@@ -14,7 +14,7 @@ int main(){
 	const uint32_t max_clients	= 2;
 	const uint16_t port		= 8888;
 	const uint16_t backlog		= 5;
-	const uint32_t timeout		= 5 * 1000;
+	const uint32_t timeout		= 999;
 
 	struct async_server *server = async_create_server(max_clients, port, backlog);
 
