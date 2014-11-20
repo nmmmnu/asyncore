@@ -23,7 +23,7 @@ struct async_server_poll{
 
 
 const char *async_system(){
-	return "poll"; 
+	return "poll";
 }
 
 
@@ -31,7 +31,7 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 	// check input data
 	if (max_clients == 0)
 		return NULL;
-		
+
 	if (max_clients > getdtablesize())
 		max_clients = getdtablesize();
 
@@ -157,6 +157,8 @@ int async_client_socket_new(struct async_server *server2){
 int async_client_socket(struct async_server *server2, uint16_t id){
 	struct async_server_poll *server = (struct async_server_poll *) server2;
 
+	id++; // clients[0] is the server
+
 	struct pollfd *client = & server->clients[id];
 
 	if (client->fd < 0)
@@ -171,6 +173,8 @@ int async_client_socket(struct async_server *server2, uint16_t id){
 
 void async_client_close(struct async_server *server2, uint16_t id){
 	struct async_server_poll *server = (struct async_server_poll *) server2;
+
+	id++; // clients[0] is the server
 
 	struct pollfd *client = & server->clients[id];
 
@@ -191,7 +195,7 @@ void async_client_close(struct async_server *server2, uint16_t id){
 			server->connected_clients
 		);
 	}
-	
+
 
 	close(client->fd);
 	client->fd = -1;
