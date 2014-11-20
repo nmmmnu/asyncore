@@ -98,11 +98,17 @@ int async_poll(struct async_server *server2, int timeout){
 			FD_SET(sd , & server->readfds);
 	}
 
-	// originally we did it lazy, but this fails on MacOS
-	//{ 0, timeout * 1000 }
 	struct timeval time;
 	time.tv_sec  = timeout / 1000;
-	time.tv_usec = ( timeout - time.tv_sec * 1000 ) * 1000;
+
+	// version 1 - we did it lazy, but this fails on MacOS
+	//time.tv_usec = timeout * 1000
+
+	// version 2
+	//time.tv_usec = ( timeout - time.tv_sec * 1000 ) * 1000;
+
+	// version 3, stolen from poll() source code
+	time.tv_usec = (timeout % 1000) * 1000;
 
 
 	struct timeval *timep = timeout < 0 ? NULL : & time;

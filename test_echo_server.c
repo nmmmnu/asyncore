@@ -4,8 +4,6 @@
 #include <unistd.h>
 #include <stdint.h>
 
-#include <sys/socket.h>
-
 #include "asyncore.h"
 
 
@@ -45,7 +43,7 @@ int main(){
 
 		int newsocket = async_client_socket_new(server);
 		if (newsocket >= 0){
-			send(newsocket, welcome,strlen(welcome), 0);
+			write(newsocket, welcome,strlen(welcome));
 		}
 
 		if (count == 0){
@@ -79,7 +77,7 @@ int main(){
 				continue;
 			}
 
-			send(sock, buffer, len, 0);
+			write(sock, buffer, len);
 		}
 	}
 
