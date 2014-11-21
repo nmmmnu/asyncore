@@ -13,18 +13,21 @@
 
 
 
-struct async_server_select{
+typedef struct{
 	uint32_t max_clients;		// 4
 	uint32_t connected_clients;	// 4
 	uint16_t port;			// 2
 
+	// eo async_server
+
 	int16_t last_client;		// 2
 
 	fd_set readfds;			// system dependent, fixed size
+	fd_set writefds;		// system dependent, fixed size
 
 	int master_socket;		// system dependent
 	int client_socket[];		// dynamic
-};
+}async_server_select;
 
 
 
@@ -33,7 +36,7 @@ const char *async_system(){
 }
 
 
-struct async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
+async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
 	// check input data
 	if (max_clients == 0)
 		return NULL;
@@ -49,7 +52,7 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 
 
 	// malloc
-	struct async_server_select *server = malloc(sizeof(struct async_server_select) + sizeof( int ) * max_clients);
+	async_server_select *server = malloc(sizeof(async_server_select) + sizeof( int ) * max_clients);
 
 	if (server == NULL)
 		return NULL;
@@ -67,25 +70,28 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 	// set server up
 	server->max_clients = max_clients;
 	server->connected_clients = 0;
-	server->last_client = -1;
 	server->port = port;
+
+	server->last_client = -1;
 	server->master_socket = master_socket;
 
 	memset(server->client_socket, 0, sizeof(int) * max_clients);
 
 
-	return (struct async_server *) server;
+	return (async_server *) server;
 };
 
 
-int async_poll(struct async_server *server2, int timeout){
-	struct async_server_select *server = (struct async_server_select *) server2;
+int async_poll(async_server *server2, int timeout){
+	async_server_select *server = (async_server_select *) server2;
 
 	// clear the socket set
 	FD_ZERO(& server->readfds);
+	FD_ZERO(& server->writefds);
 
 	// add master socket to set
 	FD_SET(server->master_socket, & server->readfds);
+	// no need to put it in writefds
 
 	// add child sockets to set
 	uint32_t i;
@@ -94,8 +100,10 @@ int async_poll(struct async_server *server2, int timeout){
 		int sd = server->client_socket[i];
 
 		//if valid socket descriptor then add to read list
-		if(sd > 0)
-			FD_SET(sd , & server->readfds);
+		if(sd > 0){
+			FD_SET(sd, & server->readfds);
+			FD_SET(sd, & server->writefds);
+		}
 	}
 
 	struct timeval time;
@@ -114,8 +122,8 @@ int async_poll(struct async_server *server2, int timeout){
 	struct timeval *timep = timeout < 0 ? NULL : & time;
 
 	// wait for an activity on one of the sockets
-	int activity = select(FD_SETSIZE, & server->readfds , NULL , NULL , timep);
-	// server->readfds and struct timeval time are destroyed now.
+	int activity = select(FD_SETSIZE, & server->readfds, & server->writefds, NULL, timep);
+	// server->readfds, server->writefds and struct timeval time are destroyed now.
 
 	if ((activity < 0) && (errno != EINTR))
 		return -1;
@@ -175,8 +183,8 @@ int async_poll(struct async_server *server2, int timeout){
 }
 
 
-int async_client_socket_new(struct async_server *server2){
-	struct async_server_select *server = (struct async_server_select *) server2;
+int async_client_connect(async_server *server2){
+	async_server_select *server = (async_server_select *) server2;
 
 	if (server->last_client < 0)
 		return -1;
@@ -189,20 +197,26 @@ int async_client_socket_new(struct async_server *server2){
 }
 
 
-int async_client_socket(struct async_server *server2, uint16_t id){
-	struct async_server_select *server = (struct async_server_select *) server2;
+int async_client_socket(async_server *server2, uint16_t id, char operation){
+	async_server_select *server = (async_server_select *) server2;
 
 	int sd = server->client_socket[id];
 
-	if (FD_ISSET(sd, & server->readfds))
-		return sd;
+	if (sd <= 0)
+		return -1;
+
+	if (operation == ASYNCOPREAD)
+		return FD_ISSET(sd, & server->readfds) ? sd : -1;
+
+	if (operation == ASYNCOPWRITE)
+		return FD_ISSET(sd, & server->writefds) ? sd : -1;
 
 	return -1;
 }
 
 
-void async_client_close(struct async_server *server2, uint16_t id){
-	struct async_server_select *server = (struct async_server_select *) server2;
+void async_client_close(async_server *server2, uint16_t id){
+	async_server_select *server = (async_server_select *) server2;
 
 	int sd = server->client_socket[id];
 

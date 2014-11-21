@@ -12,9 +12,9 @@ int main(){
 	const uint32_t max_clients	= 2;
 	const uint16_t port		= 8888;
 	const uint16_t backlog		= 5;
-	const uint32_t timeout		= 999;
+	const uint32_t timeout		= 5 * 1000;
 
-	struct async_server *server = async_create_server(max_clients, port, backlog);
+	async_server *server = async_create_server(max_clients, port, backlog);
 
 	const char *bye = "bye";
 
@@ -41,7 +41,7 @@ int main(){
 			exit(1);
 		}
 
-		int newsocket = async_client_socket_new(server);
+		int newsocket = async_client_connect(server);
 		if (newsocket >= 0){
 			write(newsocket, welcome,strlen(welcome));
 		}
@@ -53,7 +53,7 @@ int main(){
 
 		int64_t i;
 		for(i = 0; i < max_clients; i++){
-			int sock = async_client_socket(server, i);
+			int sock = async_client_socket(server, i, 'r');
 			if (sock < 0)
 				continue;
 

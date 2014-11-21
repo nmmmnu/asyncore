@@ -11,15 +11,17 @@
 
 
 
-struct async_server_poll{
+typedef struct{
 	uint32_t max_clients;		// 4
 	uint32_t connected_clients;	// 4
 	uint16_t port;			// 2
 
+	// eo async_server
+
 	uint32_t last_client;		// 4
 
 	struct pollfd clients[];	// dynamic
-};
+} async_server_poll;
 
 
 const char *async_system(){
@@ -27,7 +29,7 @@ const char *async_system(){
 }
 
 
-struct async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
+async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
 	// check input data
 	if (max_clients == 0)
 		return NULL;
@@ -40,7 +42,7 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 
 
 	// malloc
-	struct async_server_poll *server = malloc(sizeof(struct async_server) + sizeof( struct pollfd ) * max_clients);
+	async_server_poll *server = malloc(sizeof(async_server) + sizeof( struct pollfd ) * max_clients);
 
 	if (server == NULL)
 		return NULL;
@@ -58,8 +60,9 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 	// set server up
 	server->max_clients = max_clients;
 	server->connected_clients = 0;
-	server->last_client = 0;
 	server->port = port;
+
+	server->last_client = 0;
 	server->clients[0].fd = master_socket;
 	server->clients[0].events = POLLRDNORM;
 
@@ -70,12 +73,12 @@ struct async_server *async_create_server(uint32_t max_clients, uint16_t port, ui
 	}
 
 
-	return (struct async_server *) server;
+	return (async_server *) server;
 };
 
 
-int async_poll(struct async_server *server2, int timeout){
-	struct async_server_poll *server = (struct async_server_poll *) server2;
+int async_poll(async_server *server2, int timeout){
+	async_server_poll *server = (async_server_poll *) server2;
 
 	// INFTIM = wait indefinitely
 	int activity = poll(server->clients, server->max_clients + 1, timeout);
@@ -140,8 +143,8 @@ int async_poll(struct async_server *server2, int timeout){
 }
 
 
-int async_client_socket_new(struct async_server *server2){
-	struct async_server_poll *server = (struct async_server_poll *) server2;
+int async_client_connect(async_server *server2){
+	async_server_poll *server = (async_server_poll *) server2;
 
 	if (server->last_client == 0)
 		return -1;
@@ -154,8 +157,8 @@ int async_client_socket_new(struct async_server *server2){
 }
 
 
-int async_client_socket(struct async_server *server2, uint16_t id){
-	struct async_server_poll *server = (struct async_server_poll *) server2;
+int async_client_socket(async_server *server2, uint16_t id, char operation){
+	async_server_poll *server = (async_server_poll *) server2;
 
 	id++; // clients[0] is the server
 
@@ -164,15 +167,20 @@ int async_client_socket(struct async_server *server2, uint16_t id){
 	if (client->fd < 0)
 		return -1;
 
-	if (client->revents & (POLLRDNORM | POLLERR))
-		return client->fd;
+	if (operation == ASYNCOPREAD)
+		if (client->revents & (POLLRDNORM | POLLERR))
+			return client->fd;
+
+	if (operation == ASYNCOPWRITE)
+		if (client->revents & (POLLWRNORM | POLLERR))
+			return client->fd;
 
 	return -1;
 }
 
 
-void async_client_close(struct async_server *server2, uint16_t id){
-	struct async_server_poll *server = (struct async_server_poll *) server2;
+void async_client_close(async_server *server2, uint16_t id){
+	async_server_poll *server = (async_server_poll *) server2;
 
 	id++; // clients[0] is the server
 
