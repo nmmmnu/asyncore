@@ -42,7 +42,7 @@ async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t 
 
 
 	// malloc
-	async_server_poll *server = malloc(sizeof(async_server) + sizeof( struct pollfd ) * max_clients);
+	async_server_poll *server = malloc(sizeof(async_server) + sizeof( struct pollfd ) * (max_clients + 1));
 
 	if (server == NULL)
 		return NULL;
@@ -157,7 +157,7 @@ int async_client_connect(async_server *server2){
 }
 
 
-int async_client_socket(async_server *server2, uint16_t id, char operation){
+int async_client_status(async_server *server2, uint16_t id, char operation){
 	async_server_poll *server = (async_server_poll *) server2;
 
 	id++; // clients[0] is the server

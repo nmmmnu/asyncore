@@ -25,8 +25,7 @@ typedef struct{
 	fd_set readfds;			// system dependent, fixed size
 	fd_set writefds;		// system dependent, fixed size
 
-	int master_socket;		// system dependent
-	int client_socket[];		// dynamic
+	int clients[];			// dynamic
 }async_server_select;
 
 
@@ -52,7 +51,7 @@ async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t 
 
 
 	// malloc
-	async_server_select *server = malloc(sizeof(async_server_select) + sizeof( int ) * max_clients);
+	async_server_select *server = malloc(sizeof(async_server_select) + sizeof( int ) * (max_clients + 1));
 
 	if (server == NULL)
 		return NULL;
@@ -73,10 +72,10 @@ async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t 
 	server->port = port;
 
 	server->last_client = -1;
-	server->master_socket = master_socket;
 
-	memset(server->client_socket, 0, sizeof(int) * max_clients);
+	memset(server->clients, 0, sizeof(int) * (max_clients + 1));
 
+	server->clients[0] = master_socket;
 
 	return (async_server *) server;
 };
@@ -90,14 +89,14 @@ int async_poll(async_server *server2, int timeout){
 	FD_ZERO(& server->writefds);
 
 	// add master socket to set
-	FD_SET(server->master_socket, & server->readfds);
+	FD_SET(server->clients[0], & server->readfds);
 	// no need to put it in writefds
 
 	// add child sockets to set
 	uint32_t i;
-	for (i = 0 ; i < server->max_clients ; i++){
+	for (i = 1 ; i <= server->max_clients ; i++){
 		// socket descriptor
-		int sd = server->client_socket[i];
+		int sd = server->clients[i];
 
 		//if valid socket descriptor then add to read list
 		if(sd > 0){
@@ -130,20 +129,20 @@ int async_poll(async_server *server2, int timeout){
 
 	 // if something happened on the master socket,
 	 // then its an incoming connection
-	if (FD_ISSET(server->master_socket, & server->readfds)){
+	if (FD_ISSET(server->clients[0], & server->readfds)){
 		struct sockaddr_in address;
 		size_t addrlen = sizeof(address);
 
-		int new_socket = accept(server->master_socket, (struct sockaddr *) & address, (socklen_t *) & addrlen);
+		int new_socket = accept(server->clients[0], (struct sockaddr *) & address, (socklen_t *) & addrlen);
 		if (new_socket < 0)
 			return -1;
 
 		//add new socket to array of sockets
 		int inside = 0;
 		uint32_t i;
-		for (i = 0; i < server->max_clients; i++)
-			if( server->client_socket[i] == 0 ){
-				server->client_socket[i] = new_socket;
+		for (i = 1; i <= server->max_clients; i++)
+			if( server->clients[i] == 0 ){
+				server->clients[i] = new_socket;
 
 				server->connected_clients++;
 				server->last_client = i;
@@ -190,17 +189,19 @@ int async_client_connect(async_server *server2){
 		return -1;
 
 	uint32_t id = server->last_client;
-	int socket =  server->client_socket[id];
+	int socket =  server->clients[id];
 	server->last_client = -1;
 
 	return socket;
 }
 
 
-int async_client_socket(async_server *server2, uint16_t id, char operation){
+int async_client_status(async_server *server2, uint16_t id, char operation){
 	async_server_select *server = (async_server_select *) server2;
 
-	int sd = server->client_socket[id];
+	id++; // clients[0] is the server
+
+	int sd = server->clients[id];
 
 	if (sd <= 0)
 		return -1;
@@ -218,7 +219,9 @@ int async_client_socket(async_server *server2, uint16_t id, char operation){
 void async_client_close(async_server *server2, uint16_t id){
 	async_server_select *server = (async_server_select *) server2;
 
-	int sd = server->client_socket[id];
+	id++; // clients[0] is the server
+
+	int sd = server->clients[id];
 
 	server->connected_clients--;
 
@@ -241,6 +244,6 @@ void async_client_close(async_server *server2, uint16_t id){
 
 	// Close the socket and mark as 0 in list for reuse
 	close(sd);
-	server->client_socket[id] = 0;
+	server->clients[id] = 0;
 }
 

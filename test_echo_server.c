@@ -53,7 +53,7 @@ int main(){
 
 		int64_t i;
 		for(i = 0; i < max_clients; i++){
-			int sock = async_client_socket(server, i, 'r');
+			int sock = async_client_status(server, i, 'r');
 			if (sock < 0)
 				continue;
 
