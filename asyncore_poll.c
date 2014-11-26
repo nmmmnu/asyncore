@@ -103,7 +103,7 @@ int async_poll(async_server *server2, int timeout){
 		for (i = 1; i <= server->max_clients; i++)
 			if (server->clients[i].fd < 0) {
 				server->clients[i].fd = new_socket;
-				server->clients[i].events = POLLRDNORM;
+				server->clients[i].events = POLLRDNORM | POLLWRNORM;
 
 				server->connected_clients++;
 				server->last_client = i;
