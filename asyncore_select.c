@@ -18,9 +18,11 @@ typedef struct{
 	uint32_t connected_clients;	// 4
 	uint16_t port;			// 2
 
+	void *statuses;			// system dependent
+
 	// eo async_server
 
-	int16_t last_client;		// 2
+	uint32_t last_client;		// 4
 
 	fd_set readfds;			// system dependent, fixed size
 	fd_set writefds;		// system dependent, fixed size
@@ -174,7 +176,7 @@ int async_poll(async_server *server2, int timeout){
 			close(new_socket);
 		}
 
-		activity--;
+		//activity--;
 	}
 
 
@@ -203,14 +205,23 @@ int async_client_status(async_server *server2, uint16_t id, char operation){
 
 	int sd = server->clients[id];
 
-	if (sd <= 0)
+	if (sd < 0)
 		return -1;
 
-	if (operation == ASYNCOPREAD)
+	switch(operation){
+	case ASYNCOPCONN:
+		if (id != server->last_client)
+			break;
+
+		server->last_client = -1;
+		return sd;
+
+	case ASYNCOPREAD:
 		return FD_ISSET(sd, & server->readfds) ? sd : -1;
 
-	if (operation == ASYNCOPWRITE)
+	case ASYNCOPWRITE:
 		return FD_ISSET(sd, & server->writefds) ? sd : -1;
+	}
 
 	return -1;
 }
@@ -222,6 +233,9 @@ void async_client_close(async_server *server2, uint16_t id){
 	id++; // clients[0] is the server
 
 	int sd = server->clients[id];
+
+	if (sd == 0)
+		return;
 
 	server->connected_clients--;
 

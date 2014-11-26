@@ -16,6 +16,8 @@ typedef struct{
 	uint32_t connected_clients;	// 4
 	uint16_t port;			// 2
 
+	void *statuses;			// system dependent
+
 	// eo async_server
 
 	uint32_t last_client;		// 4
@@ -135,25 +137,11 @@ int async_poll(async_server *server2, int timeout){
 			close(new_socket);
 		}
 
-		activity--;
+		//activity--;
 	}
 
 
 	return activity;
-}
-
-
-int async_client_connect(async_server *server2){
-	async_server_poll *server = (async_server_poll *) server2;
-
-	if (server->last_client == 0)
-		return -1;
-
-	uint32_t id = server->last_client;
-	int socket =  server->clients[id].fd;
-	server->last_client = 0;
-
-	return socket;
 }
 
 
@@ -167,13 +155,25 @@ int async_client_status(async_server *server2, uint16_t id, char operation){
 	if (client->fd < 0)
 		return -1;
 
-	if (operation == ASYNCOPREAD)
+	switch(operation){
+	case ASYNCOPCONN:
+		if (id == server->last_client){
+			server->last_client = 0;
+			return client->fd;
+		}
+		break;
+
+	case ASYNCOPREAD:
 		if (client->revents & (POLLRDNORM | POLLERR))
 			return client->fd;
 
-	if (operation == ASYNCOPWRITE)
+		break;
+	case ASYNCOPWRITE:
 		if (client->revents & (POLLWRNORM | POLLERR))
 			return client->fd;
+
+		break;
+	}
 
 	return -1;
 }
@@ -185,6 +185,9 @@ void async_client_close(async_server *server2, uint16_t id){
 	id++; // clients[0] is the server
 
 	struct pollfd *client = & server->clients[id];
+
+	if (client->fd == -1)
+		return;
 
 	server->connected_clients--;
 
