@@ -22,11 +22,16 @@ char buffer[MAX_BUFFER + 1];
 typedef struct{
 	uint32_t	time;
 	char		state;
+
+	uint16_t	datasent;
+	uint16_t	datasize;
+	char		data[MAX_BUFFER + 1];
 } client_state;
 
 
-void welcome_client(int sock, async_server *server, int64_t id);
-void serve_client(  int sock, async_server *server, int64_t id);
+void client_welcome(	int sock, async_server *server, int64_t id);
+void client_read(	int sock, async_server *server, int64_t id);
+void client_write(	int sock, async_server *server, int64_t id);
 
 
 int main(){
@@ -73,24 +78,37 @@ int main(){
 		int64_t i;
 		for(i = 0; i < max_clients; i++){
 			int sock;
+			client_state *cs = (client_state *) server->client_states;
 
 			sock = async_client_status(server, i, 'c');
 			if (sock >= 0){
-				welcome_client(sock, server, i);
+				client_welcome(sock, server, i);
 				continue;
 			}
 
-			sock = async_client_status(server, i, 'r');
-			if (sock >= 0){
-				serve_client(sock, server, i);
-				continue;
+
+			if (cs[i].state == 'r'){
+				sock = async_client_status(server, i, 'r');
+				if (sock >= 0){
+					client_read(sock, server, i);
+					continue;
+				}
+			}
+
+
+			if (cs[i].state == 'w'){
+				sock = async_client_status(server, i, 'w');
+				if (sock >= 0){
+					client_write(sock, server, i);
+					continue;
+				}
 			}
 
 
 			struct timeval tv;
 			gettimeofday(&tv, NULL);
 
-			if (tv.tv_sec - ((client_state *)server->client_states)[i].time > conn_timeout){
+			if (tv.tv_sec - cs[i].time > conn_timeout){
 				async_client_close(server, i);
 			}
 
@@ -111,20 +129,32 @@ static void reset_timeout(async_server *server, int64_t id){
 	gettimeofday(&tv, NULL);
 
 	//printf("%d\n", tv.tv_sec);
+	client_state *cs = (client_state *) server->client_states;
 
-	((client_state *)server->client_states)[id].time = tv.tv_sec;
+	cs[id].time = tv.tv_sec;
 }
 
 
-void welcome_client(int sock, async_server *server, int64_t id){
+static void reset_write(async_server *server, int64_t id, const char *buffer, uint16_t size){
+	client_state *cs = (client_state *) server->client_states;
+
+	cs[id].state = 'w';
+	cs[id].datasent = 0;
+	cs[id].datasize = size;
+	strcpy(cs[id].data, buffer);
+}
+
+
+void client_welcome(int sock, async_server *server, int64_t id){
 	// we have connected client
-	write(sock, WELCOME_MSG, strlen(WELCOME_MSG));
 
 	reset_timeout(server, id);
+
+	reset_write(server, id, WELCOME_MSG, strlen(WELCOME_MSG) );
 }
 
 
-void serve_client(int sock, async_server *server, int64_t id){
+void client_read(int sock, async_server *server, int64_t id){
 	ssize_t len = read(sock, buffer, MAX_BUFFER);
 
 	if (len < 0){
@@ -144,8 +174,31 @@ void serve_client(int sock, async_server *server, int64_t id){
 		return;
 	}
 
-	write(sock, buffer, len);
-
 	reset_timeout(server, id);
+	reset_write(server, id, buffer, len);
 }
 
+
+void client_write(int sock, async_server *server, int64_t id){
+	client_state *cs = (client_state *) server->client_states;
+
+	uint16_t pos     = cs[id].datasent;
+	uint16_t datalen = cs[id].datasize - pos;
+
+	ssize_t len = write(sock, & cs[id].data[pos], datalen);
+
+	if (len < 0){
+		printf("Can't write\n");
+		return;
+	}
+
+	if (len == 0){
+		async_client_close(server, id);
+		return;
+	}
+
+	if (len >= datalen){
+		// write state finished
+		cs[id].state = 'r';
+	}
+}
