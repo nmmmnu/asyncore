@@ -158,7 +158,8 @@ void client_read(int sock, async_server *server, int64_t id){
 	ssize_t len = read(sock, buffer, MAX_BUFFER);
 
 	if (len < 0){
-		printf("Can't read\n");
+		printf("Error: can not read from fd: %8d\n", sock);
+		async_client_close(server, id);
 		return;
 	}
 
@@ -188,7 +189,8 @@ void client_write(int sock, async_server *server, int64_t id){
 	ssize_t len = write(sock, & cs[id].data[pos], datalen);
 
 	if (len < 0){
-		printf("Can't write\n");
+		printf("Error: can not write to fd: %8d\n", sock);
+		async_client_close(server, id);
 		return;
 	}
 
