@@ -18,17 +18,19 @@ typedef struct{
 	uint32_t connected_clients;	// 4
 	uint16_t port;			// 2
 
-	void *statuses;			// system dependent
+	void *user_data;		// system dependent
 
-	// eo async_server
+	// eo async_server_t
 
 	uint32_t last_client;		// 4
 
 	fd_set readfds;			// system dependent, fixed size
+					// usually 1024 bits / 128 bytes
 	fd_set writefds;		// system dependent, fixed size
+					// usually 1024 bits / 128 bytes
 
 	int clients[];			// dynamic
-}async_server_select;
+}async_server_select_t;
 
 
 
@@ -37,7 +39,7 @@ const char *async_system(){
 }
 
 
-async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
+async_server_t *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
 	// check input data
 	if (max_clients == 0)
 		return NULL;
@@ -53,7 +55,7 @@ async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t 
 
 
 	// malloc
-	async_server_select *server = malloc(sizeof(async_server_select) + sizeof( int ) * (max_clients + 1));
+	async_server_select_t *server = malloc(sizeof(async_server_select_t) + sizeof( int ) * (max_clients + 1));
 
 	if (server == NULL)
 		return NULL;
@@ -79,12 +81,12 @@ async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t 
 
 	server->clients[0] = master_socket;
 
-	return (async_server *) server;
+	return (async_server_t *) server;
 };
 
 
-int async_poll(async_server *server2, int timeout){
-	async_server_select *server = (async_server_select *) server2;
+int async_poll(async_server_t *server2, int timeout){
+	async_server_select_t *server = (async_server_select_t *) server2;
 
 	// clear the socket set
 	FD_ZERO(& server->readfds);
@@ -184,8 +186,8 @@ int async_poll(async_server *server2, int timeout){
 }
 
 
-int async_client_connect(async_server *server2){
-	async_server_select *server = (async_server_select *) server2;
+int async_client_connect(async_server_t *server2){
+	async_server_select_t *server = (async_server_select_t *) server2;
 
 	if (server->last_client < 0)
 		return -1;
@@ -198,8 +200,8 @@ int async_client_connect(async_server *server2){
 }
 
 
-int async_client_status(async_server *server2, uint16_t id, char operation){
-	async_server_select *server = (async_server_select *) server2;
+int async_client_status(async_server_t *server2, uint16_t id, char operation){
+	async_server_select_t *server = (async_server_select_t *) server2;
 
 	id++; // clients[0] is the server
 
@@ -209,17 +211,17 @@ int async_client_status(async_server *server2, uint16_t id, char operation){
 		return -1;
 
 	switch(operation){
-	case ASYNCOPCONN:
+	case ASYNC_OPCONN:
 		if (id != server->last_client)
 			break;
 
 		server->last_client = -1;
 		return sd;
 
-	case ASYNCOPREAD:
+	case ASYNC_OPREAD:
 		return FD_ISSET(sd, & server->readfds) ? sd : -1;
 
-	case ASYNCOPWRITE:
+	case ASYNC_OPWRITE:
 		return FD_ISSET(sd, & server->writefds) ? sd : -1;
 	}
 
@@ -227,8 +229,8 @@ int async_client_status(async_server *server2, uint16_t id, char operation){
 }
 
 
-void async_client_close(async_server *server2, uint16_t id){
-	async_server_select *server = (async_server_select *) server2;
+void async_client_close(async_server_t *server2, uint16_t id){
+	async_server_select_t *server = (async_server_select_t *) server2;
 
 	id++; // clients[0] is the server
 

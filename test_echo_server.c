@@ -29,9 +29,9 @@ typedef struct{
 } client_state;
 
 
-void client_welcome(	int sock, async_server *server, int64_t id);
-void client_read(	int sock, async_server *server, int64_t id);
-void client_write(	int sock, async_server *server, int64_t id);
+void client_welcome(	int sock, async_server_t *server, int64_t id);
+void client_read(	int sock, async_server_t *server, int64_t id);
+void client_write(	int sock, async_server_t *server, int64_t id);
 
 
 int main(){
@@ -43,7 +43,7 @@ int main(){
 	const uint32_t conn_timeout	= 30;
 
 
-	async_server *server = async_create_server(max_clients, port, backlog);
+	async_server_t *server = async_create_server(max_clients, port, backlog);
 
 
 	if (server == NULL){
@@ -51,7 +51,7 @@ int main(){
 		exit(1);
 	}
 
-	server->client_states = malloc( max_clients * sizeof(client_state) );
+	server->user_data = malloc( max_clients * sizeof(client_state) );
 
 	if (server == NULL){
 		printf("Can't create server (2)\n");
@@ -78,7 +78,7 @@ int main(){
 		int64_t i;
 		for(i = 0; i < max_clients; i++){
 			int sock;
-			client_state *cs = (client_state *) server->client_states;
+			client_state *cs = (client_state *) server->user_data;
 
 			sock = async_client_status(server, i, 'c');
 			if (sock >= 0){
@@ -117,26 +117,26 @@ int main(){
 
 	// Will not come here...
 
-	free(server->client_states);
+	free(server->user_data);
 	free(server);
 
 	return 0;
 }
 
 
-static void reset_timeout(async_server *server, int64_t id){
+static void reset_timeout(async_server_t *server, int64_t id){
 	struct timeval tv;
 	gettimeofday(&tv, NULL);
 
 	//printf("%d\n", tv.tv_sec);
-	client_state *cs = (client_state *) server->client_states;
+	client_state *cs = (client_state *) server->user_data;
 
 	cs[id].time = tv.tv_sec;
 }
 
 
-static void reset_write(async_server *server, int64_t id, const char *buffer, uint16_t size){
-	client_state *cs = (client_state *) server->client_states;
+static void reset_write(async_server_t *server, int64_t id, const char *buffer, uint16_t size){
+	client_state *cs = (client_state *) server->user_data;
 
 	cs[id].state = 'w';
 	cs[id].datasent = 0;
@@ -145,7 +145,7 @@ static void reset_write(async_server *server, int64_t id, const char *buffer, ui
 }
 
 
-void client_welcome(int sock, async_server *server, int64_t id){
+void client_welcome(int sock, async_server_t *server, int64_t id){
 	// we have connected client
 
 	reset_timeout(server, id);
@@ -154,7 +154,7 @@ void client_welcome(int sock, async_server *server, int64_t id){
 }
 
 
-void client_read(int sock, async_server *server, int64_t id){
+void client_read(int sock, async_server_t *server, int64_t id){
 	ssize_t len = read(sock, buffer, MAX_BUFFER);
 
 	if (len < 0){
@@ -180,8 +180,8 @@ void client_read(int sock, async_server *server, int64_t id){
 }
 
 
-void client_write(int sock, async_server *server, int64_t id){
-	client_state *cs = (client_state *) server->client_states;
+void client_write(int sock, async_server_t *server, int64_t id){
+	client_state *cs = (client_state *) server->user_data;
 
 	uint16_t pos     = cs[id].datasent;
 	uint16_t datalen = cs[id].datasize - pos;

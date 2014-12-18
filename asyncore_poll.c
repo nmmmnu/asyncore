@@ -16,14 +16,14 @@ typedef struct{
 	uint32_t connected_clients;	// 4
 	uint16_t port;			// 2
 
-	void *statuses;			// system dependent
+	void *user_data;		// system dependent
 
-	// eo async_server
+	// eo async_server_t
 
 	uint32_t last_client;		// 4
 
 	struct pollfd clients[];	// dynamic
-} async_server_poll;
+} async_server_poll_t;
 
 
 const char *async_system(){
@@ -31,7 +31,7 @@ const char *async_system(){
 }
 
 
-async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
+async_server_t *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
 	// check input data
 	if (max_clients == 0)
 		return NULL;
@@ -44,7 +44,7 @@ async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t 
 
 
 	// malloc
-	async_server_poll *server = malloc(sizeof(async_server) + sizeof( struct pollfd ) * (max_clients + 1));
+	async_server_poll_t *server = malloc(sizeof(async_server_t) + sizeof( struct pollfd ) * (max_clients + 1));
 
 	if (server == NULL)
 		return NULL;
@@ -75,12 +75,12 @@ async_server *async_create_server(uint32_t max_clients, uint16_t port, uint16_t 
 	}
 
 
-	return (async_server *) server;
+	return (async_server_t *) server;
 };
 
 
-int async_poll(async_server *server2, int timeout){
-	async_server_poll *server = (async_server_poll *) server2;
+int async_poll(async_server_t *server2, int timeout){
+	async_server_poll_t *server = (async_server_poll_t *) server2;
 
 	// INFTIM = wait indefinitely
 	int activity = poll(server->clients, server->max_clients + 1, timeout);
@@ -145,8 +145,8 @@ int async_poll(async_server *server2, int timeout){
 }
 
 
-int async_client_status(async_server *server2, uint16_t id, char operation){
-	async_server_poll *server = (async_server_poll *) server2;
+int async_client_status(async_server_t *server2, uint16_t id, char operation){
+	async_server_poll_t *server = (async_server_poll_t *) server2;
 
 	id++; // clients[0] is the server
 
@@ -156,19 +156,19 @@ int async_client_status(async_server *server2, uint16_t id, char operation){
 		return -1;
 
 	switch(operation){
-	case ASYNCOPCONN:
+	case ASYNC_OPCONN:
 		if (id == server->last_client){
 			server->last_client = 0;
 			return client->fd;
 		}
 		break;
 
-	case ASYNCOPREAD:
+	case ASYNC_OPREAD:
 		if (client->revents & (POLLRDNORM | POLLERR))
 			return client->fd;
 
 		break;
-	case ASYNCOPWRITE:
+	case ASYNC_OPWRITE:
 		if (client->revents & (POLLWRNORM | POLLERR))
 			return client->fd;
 
@@ -179,8 +179,8 @@ int async_client_status(async_server *server2, uint16_t id, char operation){
 }
 
 
-void async_client_close(async_server *server2, uint16_t id){
-	async_server_poll *server = (async_server_poll *) server2;
+void async_client_close(async_server_t *server2, uint16_t id){
+	async_server_poll_t *server = (async_server_poll_t *) server2;
 
 	id++; // clients[0] is the server
 
