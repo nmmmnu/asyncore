@@ -12,15 +12,15 @@ clean:
 
 
 
-asyncore_functions.o: asyncore_functions.c asyncore_functions.h
-	$(CC) asyncore_functions.c
+asyncore.o: asyncore.c asyncore.h asyncore_method.h
+	$(CC) asyncore.c
 
 
 
-asyncore_poll.o: asyncore_poll.c asyncore.h asyncore_functions.h
+asyncore_poll.o: asyncore_poll.c asyncore.h asyncore_method.h
 	$(CC) asyncore_poll.c
 
-asyncore_select.o: asyncore_select.c asyncore.h asyncore_functions.h
+asyncore_select.o: asyncore_select.c asyncore.h asyncore_method.h
 	$(CC) asyncore_select.c
 
 
@@ -33,11 +33,11 @@ sb.o: sb.c sb.h
 # ===========================
 
 
-test_echo_server_poll: test_echo_server.o asyncore_poll.o asyncore_functions.o
-	$(LINK) test_echo_server_poll test_echo_server.o asyncore_poll.o asyncore_functions.o
+test_echo_server_poll: test_echo_server.o asyncore.o asyncore_poll.o
+	$(LINK) test_echo_server_poll test_echo_server.o asyncore.o asyncore_poll.o
 
-test_echo_server_select: test_echo_server.o  asyncore_select.o asyncore_functions.o
-	$(LINK) test_echo_server_select test_echo_server.o asyncore_select.o asyncore_functions.o
+test_echo_server_select: test_echo_server.o asyncore.o asyncore_select.o
+	$(LINK) test_echo_server_select test_echo_server.o asyncore.o asyncore_select.o
 
 test_echo_server.o: test_echo_server.c asyncore.h
 	$(CC) test_echo_server.c

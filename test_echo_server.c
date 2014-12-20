@@ -1,10 +1,8 @@
 #include <stdio.h>
 #include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
+#include <stdlib.h>	// free
+#include <unistd.h>	// write
 #include <stdint.h>
-
-#include <sys/time.h>
 
 #include "asyncore.h"
 
@@ -104,34 +102,17 @@ int main(){
 				}
 			}
 
-
-			struct timeval tv;
-			gettimeofday(&tv, NULL);
-
-			if (tv.tv_sec - cs[i].time > conn_timeout){
+			if (async_client_get_timeout(server, i) > conn_timeout){
 				async_client_close(server, i);
 			}
-
 		}
 	}
 
 	// Will not come here...
 
 	free(server->user_data);
-	free(server);
 
 	return 0;
-}
-
-
-static void reset_timeout(async_server_t *server, int64_t id){
-	struct timeval tv;
-	gettimeofday(&tv, NULL);
-
-	//printf("%d\n", tv.tv_sec);
-	client_state *cs = (client_state *) server->user_data;
-
-	cs[id].time = tv.tv_sec;
 }
 
 
@@ -148,7 +129,7 @@ static void reset_write(async_server_t *server, int64_t id, const char *buffer, 
 void client_welcome(int sock, async_server_t *server, int64_t id){
 	// we have connected client
 
-	reset_timeout(server, id);
+	async_client_reset_timeout(server, id);
 
 	reset_write(server, id, WELCOME_MSG, strlen(WELCOME_MSG) );
 }
@@ -175,7 +156,8 @@ void client_read(int sock, async_server_t *server, int64_t id){
 		return;
 	}
 
-	reset_timeout(server, id);
+	async_client_reset_timeout(server, id);
+
 	reset_write(server, id, buffer, len);
 }
 

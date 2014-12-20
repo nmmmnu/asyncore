@@ -1,61 +1,34 @@
-#include "asyncore.h"
-#include "asyncore_functions.h"
+#include "asyncore_method.h"
 
-#include <stdlib.h>
-#include <unistd.h>		// close, getdtablesize
+#include <stdlib.h>		// malloc
+#include <unistd.h>		// close
 #include <stdio.h>
 
 #include <poll.h>
 #include <arpa/inet.h>		// AF_INET
 
+/*
+#ifndef INFTIM
+#define INFTIM -1
+#endif
+*/
 
-//typecast server->clients to struct pollfd clients[];
-//#define cl(server)	((struct pollfd *)server->clients)
-
-
-const char *async_system(){
+const char *_async_system(){
 	return "poll";
 }
 
-
-async_server_t *async_create_server(async_server_t *server, uint32_t max_clients, uint16_t port, uint16_t backlog){
-	// check input data
-	if (max_clients == 0)
-		return NULL;
-
-	// check maximum number of files a process can have open
-	if (max_clients > getdtablesize())
-		max_clients = getdtablesize();
-
-	if (backlog < 5)
-		backlog = 5;
-
+async_server_t *_async_create_server(async_server_t *server){
 	// malloc
-	struct pollfd *status_data = malloc(sizeof( struct pollfd ) * (max_clients + 1));
+	struct pollfd *status_data = malloc(sizeof( struct pollfd ) * (server->max_clients + 1));
 
 	if (status_data == NULL)
 		return NULL;
 
-	// bind and listen
-	int master_socket = _async_create_socket(port, backlog);
-
-	if (master_socket < 0){
-		free(status_data);
-		return NULL;
-	}
-
-	// set server up
-	server->max_clients = max_clients;
-	server->connected_clients = 0;
-	server->port = port;
-
-	server->last_client = 0;
-
-	status_data[0].fd = master_socket;
+	status_data[0].fd = server->master_socket;
 	status_data[0].events = POLLRDNORM;
 
 	uint32_t i;
-	for (i = 1; i <= max_clients; i++){
+	for (i = 1; i <= server->max_clients; i++){
 		// -1 indicates available entry
 		status_data[i].fd = -1;
 	}
@@ -65,13 +38,7 @@ async_server_t *async_create_server(async_server_t *server, uint32_t max_clients
 	return server;
 };
 
-
-void async_free_server(async_server_t *server){
-	free(server->status_data);
-}
-
-
-int async_poll(async_server_t *server, int timeout){
+int _async_poll(async_server_t *server, int timeout){
 	struct pollfd *status_data = server->status_data;
 
 	// INFTIM = wait indefinitely
@@ -136,8 +103,7 @@ int async_poll(async_server_t *server, int timeout){
 	return activity;
 }
 
-
-int async_client_status(async_server_t *server, uint16_t id, char operation){
+int _async_client_status(async_server_t *server, uint16_t id, char operation){
 	struct pollfd *status_data = server->status_data;
 
 	id++; // clients[0] is the server
@@ -170,8 +136,7 @@ int async_client_status(async_server_t *server, uint16_t id, char operation){
 	return -1;
 }
 
-
-void async_client_close(async_server_t *server, uint16_t id){
+void _async_client_close(async_server_t *server, uint16_t id){
 	struct pollfd *status_data = server->status_data;
 
 	id++; // clients[0] is the server
