@@ -3,9 +3,12 @@
 test_echo_server_poll
 test_echo_server_select
 
+test_sb
+
 test_echo_server_poll.exe
 test_echo_server_select.exe
 
+x.c
 a.out
 
 _ot/
