@@ -7,10 +7,10 @@ typedef struct{
 	uint32_t max_clients;		// 4
 	uint32_t connected_clients;	// 4
 	uint16_t port;			// 2
-	void *user_data;		// system dependent
 
 	uint32_t last_client;		// 4
-	void *clients;		// system dependent
+	void *status_data;		// system dependent
+	void *user_data;		// system dependent
 } async_server_t;
 
 

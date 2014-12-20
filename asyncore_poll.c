@@ -31,16 +31,16 @@ async_server_t *async_create_server(async_server_t *server, uint32_t max_clients
 		backlog = 5;
 
 	// malloc
-	struct pollfd *clients = malloc(sizeof( struct pollfd ) * (max_clients + 1));
+	struct pollfd *status_data = malloc(sizeof( struct pollfd ) * (max_clients + 1));
 
-	if (clients == NULL)
+	if (status_data == NULL)
 		return NULL;
 
 	// bind and listen
 	int master_socket = _async_create_socket(port, backlog);
 
 	if (master_socket < 0){
-		free(clients);
+		free(status_data);
 		return NULL;
 	}
 
@@ -51,31 +51,31 @@ async_server_t *async_create_server(async_server_t *server, uint32_t max_clients
 
 	server->last_client = 0;
 
-	clients[0].fd = master_socket;
-	clients[0].events = POLLRDNORM;
+	status_data[0].fd = master_socket;
+	status_data[0].events = POLLRDNORM;
 
 	uint32_t i;
 	for (i = 1; i <= max_clients; i++){
 		// -1 indicates available entry
-		clients[i].fd = -1;
+		status_data[i].fd = -1;
 	}
 
-	server->clients = clients;
+	server->status_data = status_data;
 
 	return server;
 };
 
 
 void async_free_server(async_server_t *server){
-	free(server->clients);
+	free(server->status_data);
 }
 
 
 int async_poll(async_server_t *server, int timeout){
-	struct pollfd *clients = server->clients;
+	struct pollfd *status_data = server->status_data;
 
 	// INFTIM = wait indefinitely
-	int activity = poll( clients, server->max_clients + 1, timeout);
+	int activity = poll( status_data, server->max_clients + 1, timeout);
 
 
 	if (activity <= 0)
@@ -83,11 +83,11 @@ int async_poll(async_server_t *server, int timeout){
 
 
 	// check for incomming connections
-	if ( clients[0].revents & POLLRDNORM) {
+	if ( status_data[0].revents & POLLRDNORM) {
 		struct sockaddr_in address;
 		size_t addrlen = sizeof(address);
 
-		int new_socket = accept( clients[0].fd, (struct sockaddr *) & address, (socklen_t *) & addrlen);
+		int new_socket = accept( status_data[0].fd, (struct sockaddr *) & address, (socklen_t *) & addrlen);
 		if (new_socket < 0)
 			return -1;
 
@@ -95,9 +95,9 @@ int async_poll(async_server_t *server, int timeout){
 		int inside = 0;
 		uint32_t i;
 		for (i = 1; i <= server->max_clients; i++)
-			if (clients[i].fd < 0) {
-				clients[i].fd = new_socket;
-				clients[i].events = POLLRDNORM | POLLWRNORM;
+			if (status_data[i].fd < 0) {
+				status_data[i].fd = new_socket;
+				status_data[i].events = POLLRDNORM | POLLWRNORM;
 
 				server->connected_clients++;
 				server->last_client = i;
@@ -138,11 +138,11 @@ int async_poll(async_server_t *server, int timeout){
 
 
 int async_client_status(async_server_t *server, uint16_t id, char operation){
-	struct pollfd *clients = server->clients;
+	struct pollfd *status_data = server->status_data;
 
 	id++; // clients[0] is the server
 
-	struct pollfd *client = & clients[id];
+	struct pollfd *client = & status_data[id];
 
 	if (client->fd < 0)
 		return -1;
@@ -172,11 +172,11 @@ int async_client_status(async_server_t *server, uint16_t id, char operation){
 
 
 void async_client_close(async_server_t *server, uint16_t id){
-	struct pollfd *clients = server->clients;
+	struct pollfd *status_data = server->status_data;
 
 	id++; // clients[0] is the server
 
-	struct pollfd *client = & clients[id];
+	struct pollfd *client = & status_data[id];
 
 	if (client->fd == -1)
 		return;
