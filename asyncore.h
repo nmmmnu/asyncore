@@ -1,7 +1,7 @@
 #ifndef _H_ASYNCORE_H
 #define _H_ASYNCORE_H
 
-//#include <stdbool.h>
+#include <stdint.h>
 
 typedef struct{
 	uint32_t max_clients;		// 4

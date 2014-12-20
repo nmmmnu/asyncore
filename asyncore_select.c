@@ -1,16 +1,15 @@
+#include "asyncore.h"
+#include "asyncore_functions.h"
+
 #include <stdlib.h>
 #include <unistd.h>		// close, getdtablesize
 #include <string.h>		// memset
 #include <errno.h>		// errno
+#include <stdio.h>
+
 
 #include <sys/select.h>
-
-#include <sys/socket.h>		// socket
 #include <arpa/inet.h>		// AF_INET
-
-#include "asyncore.h"
-#include "asyncore_static.c"
-
 
 
 typedef struct{

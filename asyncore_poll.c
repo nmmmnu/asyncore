@@ -1,15 +1,12 @@
+#include "asyncore.h"
+#include "asyncore_functions.h"
+
 #include <stdlib.h>
 #include <unistd.h>		// close, getdtablesize
+#include <stdio.h>
 
 #include <poll.h>
-
-#include <sys/socket.h>		// socket
 #include <arpa/inet.h>		// AF_INET
-
-#include "asyncore.h"
-#include "asyncore_static.c"
-
-
 
 typedef struct{
 	uint32_t max_clients;		// 4

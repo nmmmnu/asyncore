@@ -1,9 +1,9 @@
-#include <stdio.h>
+#include "asyncore_functions.h"
 
-#define LOG_FORMAT "%-12s | fd: %8d | ip: %-15s | port: %6d | clients: %8u\n"
-#define LOG(op, fd, ip, port, clients) fprintf(stderr, LOG_FORMAT, op, fd, ip, port, clients)
+#include <sys/socket.h>		// socket
+#include <arpa/inet.h>		// AF_INET
 
-static int _async_create_socket(uint16_t port, uint16_t backlog){
+int _async_create_socket(uint16_t port, uint16_t backlog){
 	int master_socket = socket(AF_INET , SOCK_STREAM , 0);
 
 	if(! master_socket )
