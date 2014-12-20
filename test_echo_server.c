@@ -42,8 +42,8 @@ int main(){
 	const uint32_t timeout		= 5 * 1000;
 	const uint32_t conn_timeout	= 30;
 
-
-	async_server_t *server = async_create_server(max_clients, port, backlog);
+	async_server_t server_static;
+	async_server_t *server = async_create_server(& server_static, max_clients, port, backlog);
 
 
 	if (server == NULL){

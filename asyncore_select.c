@@ -13,14 +13,6 @@
 
 
 typedef struct{
-	uint32_t max_clients;		// 4
-	uint32_t connected_clients;	// 4
-	uint16_t port;			// 2
-
-	void *user_data;		// system dependent
-
-	// eo async_server_t
-
 	uint32_t last_client;		// 4
 
 	fd_set readfds;			// system dependent, fixed size
@@ -29,8 +21,7 @@ typedef struct{
 					// usually 1024 bits / 128 bytes
 
 	int clients[];			// dynamic
-}async_server_select_t;
-
+}select_data_t;
 
 
 const char *async_system(){
@@ -38,7 +29,7 @@ const char *async_system(){
 }
 
 
-async_server_t *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog){
+async_server_t *async_create_server(async_server_t *server, uint32_t max_clients, uint16_t port, uint16_t backlog){
 	// check input data
 	if (max_clients == 0)
 		return NULL;
@@ -54,9 +45,9 @@ async_server_t *async_create_server(uint32_t max_clients, uint16_t port, uint16_
 
 
 	// malloc
-	async_server_select_t *server = malloc(sizeof(async_server_select_t) + sizeof( int ) * (max_clients + 1));
+	select_data_t *clients = malloc(sizeof(select_data_t) + sizeof( int ) * (max_clients + 1));
 
-	if (server == NULL)
+	if (clients == NULL)
 		return NULL;
 
 
@@ -64,7 +55,7 @@ async_server_t *async_create_server(uint32_t max_clients, uint16_t port, uint16_
 	int master_socket = _async_create_socket(port, backlog);
 
 	if (master_socket < 0){
-		free(server);
+		free(clients);
 		return NULL;
 	}
 
@@ -76,35 +67,42 @@ async_server_t *async_create_server(uint32_t max_clients, uint16_t port, uint16_
 
 	server->last_client = -1;
 
-	memset(server->clients, 0, sizeof(int) * (max_clients + 1));
+	memset(clients->clients, 0, sizeof(int) * (max_clients + 1));
 
-	server->clients[0] = master_socket;
+	clients->clients[0] = master_socket;
 
-	return (async_server_t *) server;
+	server->clients = clients;
+
+	return server;
 };
 
 
-int async_poll(async_server_t *server2, int timeout){
-	async_server_select_t *server = (async_server_select_t *) server2;
+void async_free_server(async_server_t *server){
+	free(server->clients);
+}
+
+
+int async_poll(async_server_t *server, int timeout){
+	select_data_t *clients = server->clients;
 
 	// clear the socket set
-	FD_ZERO(& server->readfds);
-	FD_ZERO(& server->writefds);
+	FD_ZERO(& clients->readfds);
+	FD_ZERO(& clients->writefds);
 
 	// add master socket to set
-	FD_SET(server->clients[0], & server->readfds);
+	FD_SET(clients->clients[0], & clients->readfds);
 	// no need to put it in writefds
 
 	// add child sockets to set
 	uint32_t i;
 	for (i = 1 ; i <= server->max_clients ; i++){
 		// socket descriptor
-		int sd = server->clients[i];
+		int sd = clients->clients[i];
 
 		//if valid socket descriptor then add to read list
 		if(sd > 0){
-			FD_SET(sd, & server->readfds);
-			FD_SET(sd, & server->writefds);
+			FD_SET(sd, & clients->readfds);
+			FD_SET(sd, & clients->writefds);
 		}
 	}
 
@@ -124,7 +122,7 @@ int async_poll(async_server_t *server2, int timeout){
 	struct timeval *timep = timeout < 0 ? NULL : & time;
 
 	// wait for an activity on one of the sockets
-	int activity = select(FD_SETSIZE, & server->readfds, & server->writefds, NULL, timep);
+	int activity = select(FD_SETSIZE, & clients->readfds, & clients->writefds, NULL, timep);
 	// server->readfds, server->writefds and struct timeval time are destroyed now.
 
 	if ((activity < 0) && (errno != EINTR))
@@ -132,11 +130,11 @@ int async_poll(async_server_t *server2, int timeout){
 
 	 // if something happened on the master socket,
 	 // then its an incoming connection
-	if (FD_ISSET(server->clients[0], & server->readfds)){
+	if (FD_ISSET(clients->clients[0], & clients->readfds)){
 		struct sockaddr_in address;
 		size_t addrlen = sizeof(address);
 
-		int new_socket = accept(server->clients[0], (struct sockaddr *) & address, (socklen_t *) & addrlen);
+		int new_socket = accept(clients->clients[0], (struct sockaddr *) & address, (socklen_t *) & addrlen);
 		if (new_socket < 0)
 			return -1;
 
@@ -144,8 +142,8 @@ int async_poll(async_server_t *server2, int timeout){
 		int inside = 0;
 		uint32_t i;
 		for (i = 1; i <= server->max_clients; i++)
-			if( server->clients[i] == 0 ){
-				server->clients[i] = new_socket;
+			if( clients->clients[i] == 0 ){
+				clients->clients[i] = new_socket;
 
 				server->connected_clients++;
 				server->last_client = i;
@@ -185,26 +183,26 @@ int async_poll(async_server_t *server2, int timeout){
 }
 
 
-int async_client_connect(async_server_t *server2){
-	async_server_select_t *server = (async_server_select_t *) server2;
+int async_client_connect(async_server_t *server){
+	select_data_t *clients = server->clients;
 
 	if (server->last_client < 0)
 		return -1;
 
 	uint32_t id = server->last_client;
-	int socket =  server->clients[id];
+	int socket =  clients->clients[id];
 	server->last_client = -1;
 
 	return socket;
 }
 
 
-int async_client_status(async_server_t *server2, uint16_t id, char operation){
-	async_server_select_t *server = (async_server_select_t *) server2;
+int async_client_status(async_server_t *server, uint16_t id, char operation){
+	select_data_t *clients = server->clients;
 
 	id++; // clients[0] is the server
 
-	int sd = server->clients[id];
+	int sd = clients->clients[id];
 
 	if (sd < 0)
 		return -1;
@@ -218,22 +216,22 @@ int async_client_status(async_server_t *server2, uint16_t id, char operation){
 		return sd;
 
 	case ASYNC_OPREAD:
-		return FD_ISSET(sd, & server->readfds) ? sd : -1;
+		return FD_ISSET(sd, & clients->readfds) ? sd : -1;
 
 	case ASYNC_OPWRITE:
-		return FD_ISSET(sd, & server->writefds) ? sd : -1;
+		return FD_ISSET(sd, & clients->writefds) ? sd : -1;
 	}
 
 	return -1;
 }
 
 
-void async_client_close(async_server_t *server2, uint16_t id){
-	async_server_select_t *server = (async_server_select_t *) server2;
+void async_client_close(async_server_t *server, uint16_t id){
+	select_data_t *clients = server->clients;
 
 	id++; // clients[0] is the server
 
-	int sd = server->clients[id];
+	int sd = clients->clients[id];
 
 	if (sd == 0)
 		return;
@@ -259,6 +257,6 @@ void async_client_close(async_server_t *server2, uint16_t id){
 
 	// Close the socket and mark as 0 in list for reuse
 	close(sd);
-	server->clients[id] = 0;
+	clients->clients[id] = 0;
 }
 

@@ -7,8 +7,10 @@ typedef struct{
 	uint32_t max_clients;		// 4
 	uint32_t connected_clients;	// 4
 	uint16_t port;			// 2
-
 	void *user_data;		// system dependent
+
+	uint32_t last_client;		// 4
+	void *clients;		// system dependent
 } async_server_t;
 
 
@@ -22,7 +24,9 @@ typedef struct{
 
 const char *async_system();
 
-async_server_t *async_create_server(uint32_t max_clients, uint16_t port, uint16_t backlog);
+async_server_t *async_create_server(async_server_t *server, uint32_t max_clients, uint16_t port, uint16_t backlog);
+void async_free_server(async_server_t *server);
+
 int async_poll(async_server_t *server, int timeout);
 int async_client_status(async_server_t *server, uint16_t id, char operation);
 void async_client_close(async_server_t *server, uint16_t id);
